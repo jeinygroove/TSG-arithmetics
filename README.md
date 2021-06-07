@@ -20,3 +20,7 @@ Implementation of + and * operators in TSG and testing reverse computation algor
 - `decimalToBinaryExp` - help function which converts Int to CONS list to represent binary number
 - `binaryExpToDecimal` - inverse function
 - best examples of usage can be found in `TSG-arithmetics-simple/test` folder
+
+## Results
+
+Will be provided in presentation, but shortly: I've managed to implement two vital arithmetic operations and `ura` perfectly finds missed arguments for them (but worth to mention that for large numbers (e.g. >10e6) it can take a lot of time)

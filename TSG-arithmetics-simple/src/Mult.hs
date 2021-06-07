@@ -12,7 +12,7 @@ mult =
         )
         (CALL "mult2'" [e_n1, e_n2])
       )
-      (RETURN failure)
+      (RETURN failure) -- number can not be empty atom
     )
   where
     e_n1  = PVE "n1"
@@ -32,11 +32,11 @@ mult2' =
       (ALT (EQA' e_n2h zero)
         (ALT (CONS' e_n2t e_n2th e_n2tt a_n2t)
           (RETURN failure) -- forbid leading zeroes (if it's not CONS zero empty)
-          (CALL "mult'" [e_n1, e_n2, empty, empty])
+          (CALL "mult'" [e_n1, e_n2, empty, empty]) -- numbers don't have leading zeroes and are not empty, let's mult them
         )
-        (CALL "mult'" [e_n1, e_n2, empty, empty])
+        (CALL "mult'" [e_n1, e_n2, empty, empty]) -- numbers don't have leading zeroes and are not empty, let's mult them
       )
-      (RETURN failure)
+      (RETURN failure) -- number can not be empty atom
     )
   where
     e_n1  = PVE "n1"
@@ -49,12 +49,20 @@ mult2' =
     a_n2t = PVA "a_nt2"
     failure = ATOM "invalid second number"
 
-
+{-|
+  e_a_shifted - reversed first number, which is shifted according to column addition
+  e_b_rest - "operations" for addition (if head is 0, there's nothing to add, if 1 -- we need to add e_a_shifted,
+     in both cases shift e_a_shifted for next operations)
+  e_a_add - reversed number for sum (analogous to e_a in plusR) (new row in column addition)
+  e_res - current result from column addition, to which we add new row
+  a_rem - reminder (analogous to e_b in plusR)
+  e_new_res - result of addition (analogous to e_res in plusR)
+-}
 multR :: FDef
 multR =    
   DEFINE "multR" [e_a_shifted, e_b_rest, e_a_add, e_res, a_rem, e_new_res]
     (ALT (CONS' e_a_add e_ah e_at a_a)
-      (ALT (CONS' e_res e_rh e_rt a_r)
+      (ALT (CONS' e_res e_rh e_rt a_r) -- addition branch
         (ALT (EQA' e_ah zero)
           (ALT (EQA' e_rh zero)
             (CALL "multR" [e_a_shifted, e_b_rest, e_at, e_rt, zero, CONS a_rem e_new_res])
@@ -98,30 +106,30 @@ multR =
         )
       )
       (ALT (CONS' e_res e_rh e_rt a_r)
-        (CALL "multR" [e_a_shifted, e_b_rest, e_res, e_a_add, a_rem, e_new_res])
-        (ALT (EQA' a_rem zero)
+        (CALL "multR" [e_a_shifted, e_b_rest, e_res, e_a_add, a_rem, e_new_res]) -- swap if e_res is longer and continue summation
+        (ALT (EQA' a_rem zero) -- addition has finished, add reminder and continue multiplication
           (ALT (CONS' e_b_rest e_bh e_bt a_b)
             (ALT (EQA' e_bh zero)
-              (CALL "multR" [CONS zero e_a_shifted, e_bt, empty, empty, zero, e_new_res])
+              (CALL "multR" [CONS zero e_a_shifted, e_bt, empty, empty, zero, e_new_res]) -- nothing to add, just shift
               (ALT (EQA' e_bh one)
-                (CALL "multR'" [CONS zero e_a_shifted, e_bt, CONS zero e_a_shifted, e_new_res, empty, zero, empty])
+                (CALL "multR'" [CONS zero e_a_shifted, e_bt, CONS zero e_a_shifted, e_new_res, empty, zero, empty]) -- shift and add shifted e_a to e_new_res (and don't forget to reverse e_new_res)
                 (RETURN failure)
               )
             )
-            (ALT (CONS' e_new_res e_nrh e_nrt a_nr) 
+            (ALT (CONS' e_new_res e_nrh e_nrt a_nr) -- no more operations, check if e_new_res is empty (it means that e_a or e_b = 0)
               (RETURN e_new_res)
               (RETURN (CONS zero empty))
             )
           )
           (ALT (CONS' e_b_rest e_bh e_bt a_b)
             (ALT (EQA' e_bh zero)
-              (CALL "multR" [CONS zero e_a_shifted, e_bt, empty, empty, zero, CONS one e_new_res])
+              (CALL "multR" [CONS zero e_a_shifted, e_bt, empty, empty, zero, CONS one e_new_res]) -- add reminder and shift, nothing to add
               (ALT (EQA' e_bh one)
-                (CALL "multR'" [CONS zero e_a_shifted, e_bt, CONS zero e_a_shifted, CONS one e_new_res, empty, zero, empty])
+                (CALL "multR'" [CONS zero e_a_shifted, e_bt, CONS zero e_a_shifted, CONS one e_new_res, empty, zero, empty]) -- add reminder, shift and add shifted e_a to e_new_res (and don't forget to reverse e_new_res)
                 (RETURN failure)
               )
             )
-            (RETURN (CONS one e_new_res))
+            (RETURN (CONS one e_new_res)) -- no more operations, return result
           )
         )
       )
@@ -146,6 +154,9 @@ multR =
     a_r = PVA "atom_res"
     a_nr = PVA "atom_nres"
 
+{-|
+  Reverses result of current addition for multR
+-}
 multR' :: FDef 
 multR' = 
     DEFINE "multR'" [e_a_shifted, e_b_rest, e_a_add, e_res_tail, e_res_head_r, a_rem, e_new_res]
@@ -164,38 +175,9 @@ multR' =
         e_rh = PVE "res_head_"
         e_rt = PVE "res_tail_"
         a_r = PVA "atom_res"
-
-{-
-mult' :: FDef
-mult' =
-  DEFINE "mult'" [e_tail_a, e_tail_b, e_head_r_a, e_head_r_b]
-    (ALT (CONS' e_tail_a e_ah e_at a_a)
-      (CALL "mult'" [e_at, e_tail_b, CONS e_ah e_head_r_a, e_head_r_b])
-      (ALT (CONS' e_tail_b e_bh e_bt a_b)
-        (CALL "mult'" [e_tail_a, e_bt, e_head_r_a, CONS e_bh e_head_r_b])
-        (ALT (CONS' e_head_r_b e_bh e_bt a_b)
-          (ALT (EQA' e_bh zero)
-            (CALL "multR" [e_head_r_a, e_bt, empty, empty, zero, empty])
-            (CALL "multR" [e_head_r_a, e_bt, e_head_r_a, zero, zero, empty])
-          )
-          (RETURN _fail)
-        )
-      )
-    )
-  where
-    e_tail_a = PVE "a_tail"
-    e_tail_b = PVE "b_tail"
-    e_head_r_a = PVE "a_head_r"
-    e_head_r_b = PVE "b_head_r"
-    e_ah = PVE "a_head_"
-    e_at = PVE "a_tail_"
-    e_bh = PVE "b_head_"
-    e_bt = PVE "b_tail_"
-    a_a = PVA "atom_a"
-    a_b = PVA "atom_b"
-    _fail = PVA "FAIL"
+{-|
+  Reverses numbers and calls multR
 -}
-
 mult' :: FDef
 mult' =
   DEFINE "mult'" [e_tail_a, e_tail_b, e_head_r_a, e_head_r_b]
@@ -207,9 +189,9 @@ mult' =
           (ALT (EQA' a_b empty)
             (ALT (CONS' e_head_r_b e_bh e_bt a_b)
               (ALT (EQA' e_bh zero)
-                (CALL "multR" [e_head_r_a, e_bt, empty, empty, zero, empty])
+                (CALL "multR" [e_head_r_a, e_bt, empty, empty, zero, empty]) -- if the last digit in e_b is zero than nothing to sum
                 (ALT (EQA' e_bh one)
-                  (CALL "multR" [e_head_r_a, e_bt, e_head_r_a, zero, zero, empty])
+                  (CALL "multR" [e_head_r_a, e_bt, e_head_r_a, zero, zero, empty]) -- if the last digit in e_b is one than we need to add e_head_r_a and zero
                   (RETURN (ATOM "invalid atom in second number list"))
                 )
               )
